@@ -1,10 +1,8 @@
 <?php
 
-define('WC_GATEWAY_ADDPAY_VERSION', '2.5.15');
+define('WCAGW_VERSION', '2.5.15');
 
-include('class-wc-gateway-addpay-assets.php');
-
-class WC_Gateway_AddPay extends WC_Payment_Gateway
+class WCAGW_Gateway extends WC_Payment_Gateway
 {
 
     /**
@@ -22,11 +20,11 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
      */
     public function __construct()
     {
-        $this->version            = WC_GATEWAY_ADDPAY_VERSION;
+        $this->version            = WCAGW_VERSION;
         $this->id                 = 'addpay';
-        $this->method_title       = __('AddPay', 'woocommerce-gateway-addpay');
+        $this->method_title       = __('AddPay', 'wcagw-payment-gateway');
 
-        $this->method_description = sprintf(__('AddPay works by sending the user to %1$sAddPay%2$s to enter their payment information.', 'woocommerce-gateway-addpay'), '<a href="http://addpay.co.za/">', '</a>');
+        $this->method_description = sprintf(__('AddPay works by sending the user to %1$sAddPay%2$s to enter their payment information.', 'wcagw-payment-gateway'), '<a href="http://addpay.co.za/">', '</a>');
         $this->icon               = WP_PLUGIN_URL . '/' . plugin_basename(dirname(dirname(__FILE__))) . '/assets/images/logo.png';
         $this->debug_email        = get_option('admin_email');
 
@@ -34,7 +32,7 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
             'products',
         );
 
-        $this->init_form_fields();
+        $this->wcagw_init_form_fields();
         $this->init_settings();
 
         $this->client_id            = $this->get_option('client_id');
@@ -55,9 +53,9 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
         add_action('woocommerce_update_options_payment_gateways', [$this, 'process_admin_options']);
         add_action('woocommerce_update_options_payment_gateways_addpay', [$this, 'process_admin_options']);
 
-        $this->check_result();
+        $this->wcagw_check_result();
 
-        add_action('woocommerce_api_wc_gateway_addpay', [$this, 'check_result']);
+        add_action('woocommerce_api_wc_gateway_addpay', [$this, 'wcagw_check_result']);
     }
 
     /**
@@ -65,56 +63,56 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
      *
      * @since 1.0.0
      */
-    public function init_form_fields()
+    public function wcagw_init_form_fields()
     {
         $this->form_fields = array(
             'enabled' => array(
-                'title'       => __('Enable/Disable', 'woocommerce-gateway-addpay'),
-                'label'       => __('Enable AddPay', 'woocommerce-gateway-addpay'),
+                'title'       => __('Enable/Disable', 'wcagw-payment-gateway'),
+                'label'       => __('Enable AddPay', 'wcagw-payment-gateway'),
                 'type'        => 'checkbox',
-                'description' => __('This controls whether or not this gateway is enabled within WooCommerce.', 'woocommerce-gateway-addpay'),
+                'description' => __('This controls whether or not this gateway is enabled within WooCommerce.', 'wcagw-payment-gateway'),
                 'default'     => 'yes',
                 'desc_tip'    => true,
             ),
             'title' => array(
-                'title'       => __('Title', 'woocommerce-gateway-addpay'),
+                'title'       => __('Title', 'wcagw-payment-gateway'),
                 'type'        => 'text',
-                'description' => __('This controls the title which the user sees during checkout.', 'woocommerce-gateway-addpay'),
-                'default'     => __('AddPay', 'woocommerce-gateway-addpay'),
+                'description' => __('This controls the title which the user sees during checkout.', 'wcagw-payment-gateway'),
+                'default'     => __('AddPay', 'wcagw-payment-gateway'),
                 'desc_tip'    => true,
             ),
             'description' => array(
-                'title'       => __('Description', 'woocommerce-gateway-addpay'),
+                'title'       => __('Description', 'wcagw-payment-gateway'),
                 'type'        => 'text',
-                'description' => __('This controls the description which the user sees during checkout.', 'woocommerce-gateway-addpay'),
-                'default'     => __('Proceed via AddPay suite of payment methods.', 'woocommerce-gateway-addpay'),
+                'description' => __('This controls the description which the user sees during checkout.', 'wcagw-payment-gateway'),
+                'default'     => __('Proceed via AddPay suite of payment methods.', 'wcagw-payment-gateway'),
                 'desc_tip'    => true,
             ),
             'client_id' => array(
-                'title'       => __('Client ID', 'woocommerce-gateway-addpay'),
+                'title'       => __('Client ID', 'wcagw-payment-gateway'),
                 'type'        => 'text',
-                'description' => __('This is the Client ID generated on the AddPay merchant console.', 'woocommerce-gateway-addpay'),
+                'description' => __('This is the Client ID generated on the AddPay merchant console.', 'wcagw-payment-gateway'),
                 'default'     => 'CHANGE ME',
             ),
             'client_secret' => array(
-                'title'       => __('Client Secret', 'woocommerce-gateway-addpay'),
+                'title'       => __('Client Secret', 'wcagw-payment-gateway'),
                 'type'        => 'text',
-                'description' => __('This is the Client Secret generated on the AddPay merchant console.', 'woocommerce-gateway-addpay'),
+                'description' => __('This is the Client Secret generated on the AddPay merchant console.', 'wcagw-payment-gateway'),
                 'default'     => 'CHANGE ME',
             ),
             'environment' => array(
-                'title'       => __('Environment', 'woocommerce-gateway-addpay'),
-                'label'       => __('Live AddPay API Credentials', 'woocommerce-gateway-addpay'),
+                'title'       => __('Environment', 'wcagw-payment-gateway'),
+                'label'       => __('Live AddPay API Credentials', 'wcagw-payment-gateway'),
                 'type'        => 'checkbox',
-                'description' => __('This controls whether or not this gateway is using sandbox or live credentials.', 'woocommerce-gateway-addpay'),
+                'description' => __('This controls whether or not this gateway is using sandbox or live credentials.', 'wcagw-payment-gateway'),
                 'default'     => 'no',
                 'desc_tip'    => true,
             ),
             'payment_url' => array(
-                'title'       => __('Payment URL', 'woocommerce-gateway-addpay'),
+                'title'       => __('Payment URL', 'wcagw-payment-gateway'),
                 'type'        => 'text',
-                'description' => __('The URL of your custom payment page. AddPay Plus Customers only.  ', 'woocommerce-gateway-addpay'),
-                'default'     => __('', 'woocommerce-gateway-addpay'),
+                'description' => __('The URL of your custom payment page. AddPay Plus Customers only.  ', 'wcagw-payment-gateway'),
+                'default'     => __('', 'wcagw-payment-gateway'),
             )
 
         );
@@ -133,10 +131,10 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
             'reference'   => $order->get_order_number(),
             'description' => get_bloginfo('name'),
             'customer' => array(
-                'firstname' => self::get_order_prop($order, 'billing_first_name'),
-                'lastname'  => self::get_order_prop($order, 'billing_last_name'),
-                'email'     => self::get_order_prop($order, 'billing_email'),
-                'mobile'    => self::get_order_prop($order, 'billing_phone'),
+                'firstname' => self::wcagw_get_order_prop($order, 'billing_first_name'),
+                'lastname'  => self::wcagw_get_order_prop($order, 'billing_last_name'),
+                'email'     => self::wcagw_get_order_prop($order, 'billing_email'),
+                'mobile'    => self::wcagw_get_order_prop($order, 'billing_phone'),
             ),
             'amount'  => array(
               'value'         => $order->get_total(),
@@ -201,7 +199,7 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
      *
      * @since 1.0.0
      */
-    public function check_result($order_id = '')
+    public function wcagw_check_result($order_id = '')
     {
         $transaction_id = isset($_GET['transaction_id']) ? sanitize_text_field($_GET['transaction_id']) : false;
 
@@ -254,7 +252,7 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
      *
      * @return mixed Property value
      */
-    public static function get_order_prop($order, $prop)
+    public static function wcagw_get_order_prop($order, $prop)
     {
         switch ($prop) {
             case 'order_total':
