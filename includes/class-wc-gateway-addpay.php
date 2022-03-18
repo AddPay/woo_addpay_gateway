@@ -1,14 +1,5 @@
 <?php
-/**
- * AddPay Payment Gateway
- *
- * Provides the AddPay Payment Gateway.
- *
- * @class 		woocommerce_addpay
- * @package		WooCommerce
- * @category	Payment Gateways
- * @author		AddPay
- */
+
 define('WC_GATEWAY_ADDPAY_VERSION', '2.5.15');
 
 include('class-wc-gateway-addpay-assets.php');
@@ -212,7 +203,7 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
      */
     public function check_result($order_id = '')
     {
-        $transaction_id = isset($_GET['transaction_id']) ? $_GET['transaction_id'] : false;
+        $transaction_id = isset($_GET['transaction_id']) ? sanitize_text_field($_GET['transaction_id']) : false;
 
         if ($transaction_id) {
             $this->result = wp_remote_get("{$this->url}/{$transaction_id}", array(
@@ -227,7 +218,7 @@ class WC_Gateway_AddPay extends WC_Payment_Gateway
                 'Authorization' => 'Token ' . base64_encode("{$this->client_id}:{$this->client_secret}"),
               ],
               'cookies'      => array()
-          ));
+            ));
 
             $transaction = json_decode($this->result['body'])->data;
             $order          = new WC_Order($transaction->reference);

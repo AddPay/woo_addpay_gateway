@@ -3,10 +3,13 @@
  * Plugin Name: WooCommerce AddPay Gateway
  * Plugin URI: http://github.com/addpay/addpay-woocommerce
  * Description: Receive payments using the AddPay payments provider.
- * Author: AddPay
+ * Author: AddPay Pty Ltd
  * Author URI: https://www.addpay.co.za/
+ * Developer: Richard Slabbert/Stephen Lake
+ * Developer URI: https://www.addpay.co.za/
  * Version: 2.5.14
  */
+
 if (! defined('ABSPATH')) {
     exit;
 }
