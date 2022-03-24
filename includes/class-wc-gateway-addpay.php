@@ -32,7 +32,7 @@ class WCAGW_Gateway extends WC_Payment_Gateway
             'products',
         );
 
-        $this->wcagw_init_form_fields();
+        $this->init_form_fields();
         $this->init_settings();
 
         $this->client_id            = $this->get_option('client_id');
@@ -63,7 +63,7 @@ class WCAGW_Gateway extends WC_Payment_Gateway
      *
      * @since 1.0.0
      */
-    public function wcagw_init_form_fields()
+    public function init_form_fields()
     {
         $this->form_fields = array(
             'enabled' => array(
@@ -173,9 +173,10 @@ class WCAGW_Gateway extends WC_Payment_Gateway
                     );
                 }
             else {
+                $redirect = strpos($this->payment_url, "?") !== false ? $this->payment_url .'&transaction_id=' . $result->id : $this->payment_url .'?transaction_id=' . $result->id;
                 return array(
                     'result'     => 'success',
-                    'redirect'   => $this->payment_url .'&transaction_id=' . $result->id,
+                    'redirect'   => $redirect
                 );
             }
 
