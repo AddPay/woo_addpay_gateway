@@ -1,8 +1,8 @@
 <?php
 
-define('WCAGW_VERSION', '2.5.15');
+define('WCAPGW_VERSION', '2.5.19');
 
-class WCAGW_Gateway extends WC_Payment_Gateway
+class WCAPGW_Gateway extends WC_Payment_Gateway
 {
 
     /**
@@ -20,12 +20,12 @@ class WCAGW_Gateway extends WC_Payment_Gateway
      */
     public function __construct()
     {
-        $this->version            = WCAGW_VERSION;
+        $this->version            = WCAPGW_VERSION;
         $this->id                 = 'addpay';
         $this->method_title       = __('AddPay', 'wcagw-payment-gateway');
 
         $this->method_description = sprintf(__('AddPay works by sending the user to %1$sAddPay%2$s to enter their payment information.', 'wcagw-payment-gateway'), '<a href="http://addpay.co.za/">', '</a>');
-        $this->icon               = WP_PLUGIN_URL . '/' . plugin_basename(dirname(dirname(__FILE__))) . '/assets/images/logo.png';
+        $this->icon               = WP_PLUGIN_URL . '/' . plugin_basename(dirname(dirname(__FILE__))) . '/logo.png';
         $this->debug_email        = get_option('admin_email');
 
         $this->supports = array(
@@ -40,7 +40,7 @@ class WCAGW_Gateway extends WC_Payment_Gateway
         $this->environment          = $this->get_option('environment');
         $this->title                = $this->get_option('title');
         $this->description          = $this->get_option('description');
-        $this->payment_url          = $this->get_option('payment_url');
+        $this->payment_url          = $this->get_option('payment_url', '');
         $this->enabled              = 'yes';
 
 
@@ -53,9 +53,9 @@ class WCAGW_Gateway extends WC_Payment_Gateway
         add_action('woocommerce_update_options_payment_gateways', [$this, 'process_admin_options']);
         add_action('woocommerce_update_options_payment_gateways_addpay', [$this, 'process_admin_options']);
 
-        $this->wcagw_check_result();
+        // $this->wcapgw_check_result();
 
-        add_action('woocommerce_api_wc_gateway_addpay', [$this, 'wcagw_check_result']);
+        add_action('woocommerce_api_wcapgw_gateway', [$this, 'wcapgw_check_result']);
     }
 
     /**
@@ -127,14 +127,20 @@ class WCAGW_Gateway extends WC_Payment_Gateway
     {
         $order = wc_get_order($order_id);
 
+        // $notify_url = str_replace('https:', 'http:', add_query_arg('wc-api', 'WCAPGW_Gateway', home_url('/')));
+        $return_url = str_replace('https:', 'http:', home_url('/') . 'wc-api/wcapgw_gateway/');
+        $timestamp = intval(microtime(true));
+        $reference_long = "wcap-" . $order->get_order_number() . "-" . $timestamp;
+        $reference = substr($reference_long, 0, 24); // ensure that it is less than 24 characters as is required by Addpay API
+
         $this->payload = json_encode(array(
-            'reference'   => $order->get_order_number(),
+            'reference'   => $reference,
             'description' => get_bloginfo('name'),
             'customer' => array(
-                'firstname' => self::wcagw_get_order_prop($order, 'billing_first_name'),
-                'lastname'  => self::wcagw_get_order_prop($order, 'billing_last_name'),
-                'email'     => self::wcagw_get_order_prop($order, 'billing_email'),
-                'mobile'    => self::wcagw_get_order_prop($order, 'billing_phone'),
+                'firstname' => self::wcapgw_get_order_prop($order, 'billing_first_name'),
+                'lastname'  => self::wcapgw_get_order_prop($order, 'billing_last_name'),
+                'email'     => self::wcapgw_get_order_prop($order, 'billing_email'),
+                'mobile'    => self::wcapgw_get_order_prop($order, 'billing_phone'),
             ),
             'amount'  => array(
               'value'         => $order->get_total(),
@@ -144,8 +150,9 @@ class WCAGW_Gateway extends WC_Payment_Gateway
               'key'     => 'DIRECTPAY',
               'intent'  => 'SALE'
             ),
-            'return_url'    => $this->get_return_url($order),
-            'notify_url'    => str_replace('https:', 'http:', add_query_arg('wc-api', 'WC_Gateway_Addpay', home_url('/')))
+            'return_url'    => $return_url, //$this->get_return_url($order),
+            'notify_url'    => $return_url,
+            'cancel_url'    => $return_url
         ));
 
         $this->result = wp_remote_post($this->url, array(
@@ -200,46 +207,69 @@ class WCAGW_Gateway extends WC_Payment_Gateway
      *
      * @since 1.0.0
      */
-    public function wcagw_check_result($order_id = '')
+    public function wcapgw_check_result()
     {
+        global $woocommerce;
         $transaction_id = isset($_GET['transaction_id']) ? sanitize_text_field($_GET['transaction_id']) : false;
+        $status = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : false;
+        $checkout_url = $woocommerce->cart->get_checkout_url();
+        $cart_url = wc_get_cart_url();
 
         if ($transaction_id) {
-            $this->result = wp_remote_get("{$this->url}/{$transaction_id}", array(
-              'method'       => 'GET',
-              'timeout'      => 45,
-              'redirection'  => 5,
-              'httpversion'  => '1.0',
-              'blocking'     => true,
-              'headers'      => [
-                'Content-Type'  => 'application/json',
-                'accept'        => 'application/json',
-                'Authorization' => 'Token ' . base64_encode("{$this->client_id}:{$this->client_secret}"),
-              ],
-              'cookies'      => array()
-            ));
+            try {
+                $this->result = wp_remote_get("{$this->url}/{$transaction_id}", array(
+                    'method'       => 'GET',
+                    'timeout'      => 45,
+                    'redirection'  => 5,
+                    'httpversion'  => '1.0',
+                    'blocking'     => true,
+                    'headers'      => [
+                        'Content-Type'  => 'application/json',
+                        'accept'        => 'application/json',
+                        'Authorization' => 'Token ' . base64_encode("{$this->client_id}:{$this->client_secret}"),
+                    ],
+                    'cookies'      => array()
+                ));
 
-            $transaction = json_decode($this->result['body'])->data;
-            $order          = new WC_Order($transaction->reference);
-            $status         = $transaction->status;
+                $transaction = json_decode($this->result['body'])->data;
+                $order_id = explode("-", $transaction->reference)[1];
+                $order = new WC_Order($order_id);
+                $redirect = $this->get_return_url($order);
+                $status = !$status ? $transaction->status : $status;
 
-            if ($status == 'COMPLETE') {
-                $order->update_status('processing');
-                $order->payment_complete();
-
-                if (!isset($_POST['transaction_id'])) {
-                    wc_add_notice(__('<strong>Payment successfully processed via AddPay</strong> ', 'woothemes'), 'success');
+                if ($status == 'COMPLETE') {
+                    $order->update_status('processing');
+                    $order->payment_complete();
+                    $woocommerce->cart->empty_cart();
+                    wp_redirect($redirect);
+                } elseif ($status == 'FAILED') {
+                    if (!isset($_POST['transaction_id'])) {
+                        $state = ucFirst(strtolower($status));
+    
+                        wc_add_notice(__("<strong>Payment {$state}</strong><br/>{$transaction->status_reason}", 'woothemes'), 'error');
+                    }
+    
+                    $order->update_status('failed');
+                    wp_redirect($cart_url);
+                } else if ($status == 'CANCELLED') {
+                    wp_redirect($checkout_url);
+                } else {
+                    if (!isset($_POST['transaction_id'])) {
+                        $state = ucFirst(strtolower($status));
+                        wc_add_notice(__("<strong>Invalid transaction status: {$state}</strong><br/>{$transaction->status_reason}", 'woothemes'), 'error');
+                    }
+                    wp_redirect($cart_url);
                 }
-            } elseif ($status == 'FAILED' || $status == 'CANCELLED') {
-                if (!isset($_POST['transaction_id'])) {
-                    $state = ucFirst(strtolower($status));
-
-                    wc_add_notice(__("<strong>Payment {$state}</strong><br/>{$transaction->status_reason}", 'woothemes'), 'error');
-                }
-
-                $order->update_status('failed');
+            } catch (\Throwable $th) {
+                wc_add_notice(__('<strong>An error occurred while processing the transaction response. Please submit a ticket to <a href="https://helpdesk.addpay.co.za/">AddPay support</a> with this error message.</strong> ', 'woothemes'), 'error');
             }
+        } else {
+            if (!isset($_POST['transaction_id'])) {
+                wc_add_notice(__('<strong>AddPay response does not include the transaction details. Please submit a ticket to <a href="https://helpdesk.addpay.co.za/">AddPay support</a> with this error message.</strong> ', 'woothemes'), 'error');
+            }
+            wp_redirect($cart_url);
         }
+        exit;
     }
 
     /**
@@ -253,7 +283,7 @@ class WCAGW_Gateway extends WC_Payment_Gateway
      *
      * @return mixed Property value
      */
-    public static function wcagw_get_order_prop($order, $prop)
+    public static function wcapgw_get_order_prop($order, $prop)
     {
         switch ($prop) {
             case 'order_total':
