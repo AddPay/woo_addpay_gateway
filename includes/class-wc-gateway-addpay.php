@@ -1,6 +1,6 @@
 <?php
 
-define('WCAPGW_VERSION', '2.5.19');
+define('WCAPGW_VERSION', '2.6.2');
 
 class WCAPGW_Gateway extends WC_Payment_Gateway
 {
@@ -23,7 +23,6 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
         $this->version            = WCAPGW_VERSION;
         $this->id                 = 'addpay';
         $this->method_title       = __('AddPay', 'wcagw-payment-gateway');
-
         $this->method_description = sprintf(__('AddPay works by sending the user to %1$sAddPay%2$s to enter their payment information.', 'wcagw-payment-gateway'), '<a href="http://addpay.co.za/">', '</a>');
         $this->icon               = WP_PLUGIN_URL . '/' . plugin_basename(dirname(dirname(__FILE__))) . '/logo.png';
         $this->debug_email        = get_option('admin_email');
@@ -31,27 +30,26 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
         $this->supports = array(
             'products',
         );
-
         $this->init_form_fields();
         $this->init_settings();
-
+      
         $this->client_id            = $this->get_option('client_id');
         $this->client_secret        = $this->get_option('client_secret');
         $this->environment          = $this->get_option('environment');
         $this->title                = $this->get_option('title');
         $this->description          = $this->get_option('description');
         $this->payment_url          = $this->get_option('payment_url', '');
-        $this->enabled              = 'yes';
-
+        $this->enabled              = $this->get_option( 'enabled' );
+       
 
         if ($this->environment == 'yes') {
             $this->url              = 'https://secure.addpay.co.za/v2/transactions';
         } else {
             $this->url              = 'https://secure-test.addpay.co.za/v2/transactions';
         }
-        
+
         add_action('woocommerce_update_options_payment_gateways', [$this, 'process_admin_options']);
-        add_action('woocommerce_update_options_payment_gateways_addpay', [$this, 'process_admin_options']);
+        add_action('woocommerce_update_options_payment_gateways_' . $this->id, [$this, 'process_admin_options']);
 
         // $this->wcapgw_check_result();
 
@@ -151,7 +149,15 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
               'intent'  => 'SALE'
             ),
             'return_url'    => $return_url, //$this->get_return_url($order),
-            'notify_url'    => $return_url,
+            /**
+             * Notify URL should NOT be the same as the return URL, this could (and likely does) cause
+             * duplicate orders since the notify could come before or after the checkout, rendering 
+             * an additional result check. Since the result is checked when the return URL is 
+             * hit, we don't even need the notification. The only instance where this may
+             * be needed is in the event of a refund or chargeback.
+             *
+             * 'notify_url'    => $return_url,
+             */
             'cancel_url'    => $return_url
         ));
 
