@@ -7,7 +7,7 @@
  * Author URI: https://www.addpay.co.za/
  * Developer: Richard Slabbert/Stephen Lake/Zonica Pietersen
  * Developer URI: https://www.addpay.co.za/
- * Version: 2.6.2
+ * Version: 2.6.3
  */
 
 if (!defined('ABSPATH')) {
