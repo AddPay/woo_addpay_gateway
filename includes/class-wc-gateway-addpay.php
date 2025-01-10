@@ -1,6 +1,6 @@
 <?php
 
-define('WCAPGW_VERSION', '2.6.2');
+define('WCAPGW_VERSION', '2.6.3');
 
 class WCAPGW_Gateway extends WC_Payment_Gateway
 {
@@ -50,8 +50,6 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
 
         add_action('woocommerce_update_options_payment_gateways', [$this, 'process_admin_options']);
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, [$this, 'process_admin_options']);
-
-        // $this->wcapgw_check_result();
 
         add_action('woocommerce_api_wcapgw_gateway', [$this, 'wcapgw_check_result']);
     }
@@ -119,7 +117,7 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
     /**
      * Process the payment and return the result.
      *
-     * @since 1.0.0
+     * @since 2.6.3
      */
     public function process_payment($order_id)
     {
@@ -207,20 +205,12 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
     }
 
     /**
-     * Check payment result.
-     *
-     * Check the result of the transaction and mark the order appropriately
+     * Validate the transaction status
      *
      * @since 1.0.0
      */
-    public function wcapgw_check_result()
+    public function wcapgw_validate_status($retry, $transaction_id, $status, $checkout_url, $cart_url)
     {
-        global $woocommerce;
-        $transaction_id = isset($_GET['transaction_id']) ? sanitize_text_field($_GET['transaction_id']) : false;
-        $status = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : false;
-        $checkout_url = $woocommerce->cart->get_checkout_url();
-        $cart_url = wc_get_cart_url();
-
         if ($transaction_id) {
             try {
                 $this->result = wp_remote_get("{$this->url}/{$transaction_id}", array(
@@ -246,7 +236,7 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
                 if ($status == 'COMPLETE') {
                     $order->update_status('processing');
                     $order->payment_complete();
-                    $woocommerce->cart->empty_cart();
+                    WC()->cart->empty_cart();
                     wp_redirect($redirect);
                 } elseif ($status == 'FAILED') {
                     if (!isset($_POST['transaction_id'])) {
@@ -259,6 +249,14 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
                     wp_redirect($cart_url);
                 } else if ($status == 'CANCELLED') {
                     wp_redirect($checkout_url);
+                } else if ($status == 'READY') {
+                    if($retry < 3){
+                        sleep(2);
+                        return $this->wcapgw_validate_status($retry + 1, $transaction_id, $status, $checkout_url, $cart_url);
+                    } else {
+                        wc_add_notice(__('<strong>Payment Processing</strong><br/>', 'woothemes') . 'Payment is taking too long to process. Please try again later.', 'info');
+                        wp_redirect($cart_url);
+                    }
                 } else {
                     if (!isset($_POST['transaction_id'])) {
                         $state = ucFirst(strtolower($status));
@@ -275,6 +273,24 @@ class WCAPGW_Gateway extends WC_Payment_Gateway
             }
             wp_redirect($cart_url);
         }
+    }
+
+    /**
+     * Check payment result.
+     *
+     * Check the result of the transaction and mark the order appropriately
+     *
+     * @since 1.0.0
+     */
+    public function wcapgw_check_result()
+    {
+        $transaction_id = isset($_GET['transaction_id']) ? sanitize_text_field($_GET['transaction_id']) : false;
+        $status = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : false;
+        $checkout_url = wc_get_checkout_url();
+        $cart_url = wc_get_cart_url();
+
+        $this->wcapgw_validate_status(0, $transaction_id, $status, $checkout_url, $cart_url);
+       
         exit;
     }
 
